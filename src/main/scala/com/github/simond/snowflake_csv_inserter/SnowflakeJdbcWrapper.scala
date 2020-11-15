@@ -35,40 +35,38 @@ object SnowflakeJdbcWrapper {
   def writeBatches(records: Iterator[CSVRecord], conn: Connection, sql: String, colTypes: List[String],
                    batchSize: Int): Unit = {
     val ps = conn.prepareStatement(sql)
-    var rowsRead = 0
     var batchNumber = 0
+    val batched = records.grouped(batchSize)
 
-    while (records.hasNext) {
-      val line = records.next()
-      var colIndex = 0
+    batched.foreach(batch => {
+      batchNumber += 1
+      var rowsRead = 0
+      batch.foreach(record => {
+        var colIndex = 0
+        ps.clearParameters()
 
-      ps.clearParameters()
-      rowsRead += 1
-      for(colType <- colTypes) {
-        val tt: String = if (line.get(colIndex) == null) "NULL" else colType
-        Try(
-          tt.toUpperCase() match {
-            case "INT" => ps.setInt(colIndex+1, line.get(colIndex).toInt)
-            case "NULL" => ps.setNull(colIndex+1, 0)
-            case _ => ps.setString(colIndex+1, line.get(colIndex))
-          }
-        ).getOrElse({
-          logger.warn(s"Unable to convert ${line.get(colIndex)} at param index ${colIndex+1} to ${tt}, inserting NULL instead")
-          ps.setNull(colIndex+1, 0)
-        })
-        colIndex += 1
-      }
-      ps.addBatch()
-
-      if (rowsRead == batchSize.toInt || !records.hasNext) {
-        batchNumber += 1
-        logger.info(s"Writing batch ${batchNumber} with ${rowsRead} records to Snowflake...")
-        println(s"Writing batch ${batchNumber} with ${rowsRead} records to Snowflake...")
-        ps.executeBatch()
-        logger.info(s"Done writing batch ${batchNumber}")
-        println(s"Done writing batch ${batchNumber}")
-        rowsRead = 0
-      }
-    }
+        for (colType <- colTypes) {
+          val tt: String = if (record.get(colIndex) == null) "NULL" else colType
+          Try(
+            tt.toUpperCase() match {
+              case "INT" => ps.setInt(colIndex + 1, record.get(colIndex).toInt)
+              case "NULL" => ps.setNull(colIndex + 1, 0)
+              case _ => ps.setString(colIndex + 1, record.get(colIndex))
+            }
+          ).getOrElse({
+            logger.warn(s"Unable to convert ${record.get(colIndex)} at param index ${colIndex + 1} to ${tt}, inserting NULL instead")
+            ps.setNull(colIndex + 1, 0)
+          })
+          colIndex += 1
+        }
+        rowsRead += 1;
+        ps.addBatch()
+      })
+      logger.info(s"Writing batch ${batchNumber} with ${rowsRead} records to Snowflake...")
+      println(s"Writing batch ${batchNumber} with ${rowsRead} records to Snowflake...")
+      ps.executeBatch()
+      logger.info(s"Done writing batch ${batchNumber}")
+      println(s"Done writing batch ${batchNumber}")
+    })
   }
 }
