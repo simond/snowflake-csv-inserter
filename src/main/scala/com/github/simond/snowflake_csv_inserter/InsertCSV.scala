@@ -4,11 +4,10 @@ import java.util.Properties
 
 import org.rogach.scallop.ScallopConf
 
-import scala.util.Using
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Success, Try, Using}
 import org.slf4j.LoggerFactory
 import org.rogach.scallop._
-import java.io.FileReader
+import java.io.{FileNotFoundException, FileReader}
 
 class Conf(arguments: Seq[String]) extends ScallopConf(arguments) {
   val snowflakeConfigFile: ScallopOption[String] = opt[String](required = true, descr = "The location of the Snowflake configuration file")
@@ -20,25 +19,33 @@ class Conf(arguments: Seq[String]) extends ScallopConf(arguments) {
 object InsertCSV extends App {
   private val logger = LoggerFactory.getLogger(getClass)
   val conf = new Conf(args)
-  val snowflakeConfigFile = new FileReader(conf.snowflakeConfigFile())
   val prop = new Properties
-  val insertTemplate = "insert into CUSTOMER values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+  val insertTemplate = "insert into test_db.public.CUSTOMER values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
   val colTypes = List("int","string","int","int","int","int","int","string","string","string","string","int","int",
     "int","string","string","string","string")
 
-  prop.load(snowflakeConfigFile)
+  // Try to read the properties file
+  try {
+    prop.load(new FileReader(conf.snowflakeConfigFile()))
+  } catch {
+    case e: FileNotFoundException => {
+      logger.error(s"Unable to find Snowflake config file ${conf.snowflakeConfigFile()} \n ${e}")
+      println(s"Unable to find Snowflake config file ${conf.snowflakeConfigFile()}")
+      System.exit(1)
+    }
+  }
 
   val connection = SnowflakeJdbcWrapper.getConnection(
     prop.getProperty("username"),
     prop.getProperty("password"),
     prop.getProperty("account"),
     prop.getProperty("region"),
-    database = prop.getProperty("db"),
-    schema = prop.getProperty("schema"),
-    warehouse = prop.getProperty("warehouse")
+    database = Option(prop.getProperty("db")),
+    schema = Option(prop.getProperty("schema")),
+    warehouse = Option(prop.getProperty("warehouse"))
   )
 
-  val v = connection match {
+  connection match {
     case Success(connection) =>
       Using.Manager { use =>
         val conn = use(connection)
@@ -46,13 +53,8 @@ object InsertCSV extends App {
         time {
           SnowflakeJdbcWrapper.writeBatches(csvIterator, conn, insertTemplate, colTypes, conf.batchSize())
         }
-      }
-    case Failure(e) => logger.error(s"Unable to connect to database: \n$e"); throw e
-  }
-
-  v match {
-    case Success(e) => logger.info("Done"); println(s"Done ${e}")
-    case Failure(e) => logger.error(e.toString); throw e
+      }.get
+    case Failure(e) => logger.error(s"Unable to connect to database: \n$e"); // throw e
   }
 
   def time[R](block: => R): R = {

@@ -13,17 +13,17 @@ object SnowflakeJdbcWrapper {
   private val logger = LoggerFactory.getLogger(getClass)
 
   def getConnection(username: String, password: String, accountName: String, regionId: String,
-                    warehouse: String = "", database: String = "", schema: String = ""): Try[Connection] = {
+                    database: Option[String], schema: Option[String], warehouse: Option[String]): Try[Connection] = {
 
     val properties = new Properties()
     val driver = "net.snowflake.client.jdbc.SnowflakeDriver"
     val url = s"jdbc:snowflake://$accountName.$regionId.snowflakecomputing.com"
 
-    properties.put("db", database)
     properties.put("user", username)
     properties.put("password", password)
-    properties.put("warehouse", warehouse)
-    properties.put("schema", schema)
+    properties.put("db", database.getOrElse(""))
+    properties.put("schema", schema.getOrElse(""))
+    properties.put("warehouse", warehouse.getOrElse(""))
 
     logger.info("Connecting to Snowflake")
     Try({
