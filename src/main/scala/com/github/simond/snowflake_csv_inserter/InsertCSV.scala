@@ -34,7 +34,7 @@ object InsertCSV extends App {
       System.exit(1)
   }
 
-  val connection = SnowflakeJdbcWrapper.getConnection(
+  val connection = SnowflakeWrapper.getConnection(
     prop.getProperty("username"),
     prop.getProperty("password"),
     prop.getProperty("account"),
@@ -49,7 +49,7 @@ object InsertCSV extends App {
       val conn = use(connection)
       val csvIterator = use(CsvReader(',', conf.fileLocation())).iterator
       time {
-        SnowflakeJdbcWrapper.writeBatches(csvIterator, conn, insertTemplate, colTypes, conf.batchSize())
+        SnowflakeWrapper.writeBatches(csvIterator, conn, insertTemplate, colTypes, conf.batchSize())
       }
     })
   )

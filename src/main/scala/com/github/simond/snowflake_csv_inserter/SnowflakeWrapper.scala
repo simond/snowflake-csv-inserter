@@ -6,10 +6,10 @@ import java.util.Properties
 import org.slf4j.LoggerFactory
 import scala.util.Try
 
-class SnowflakeJdbcWrapper {
+class SnowflakeWrapper {
 }
 
-object SnowflakeJdbcWrapper {
+object SnowflakeWrapper {
   private val logger = LoggerFactory.getLogger(getClass)
 
   def getConnection(username: String, password: String, accountName: String, regionId: String,
