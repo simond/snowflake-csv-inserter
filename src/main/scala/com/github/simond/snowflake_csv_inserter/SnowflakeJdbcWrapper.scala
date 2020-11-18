@@ -40,24 +40,21 @@ object SnowflakeJdbcWrapper {
     val batched = records.grouped(batchSize)
 
     batched.foreach(batch => {
-      batchNumber += 1
       var batchRows = 0
+      batchNumber += 1
+
       batch.foreach(record => {
         var colIndex = 0
         ps.clearParameters()
 
-        for (colType <- colTypes) {
-          val tt: String = if (record.get(colIndex) == null) "NULL" else colType
-          Try(
-            tt.toUpperCase() match {
-              case "INT" => ps.setInt(colIndex + 1, record.get(colIndex).toInt)
-              case "NULL" => ps.setNull(colIndex + 1, 0)
-              case _ => ps.setString(colIndex + 1, record.get(colIndex))
-            }
-          ).getOrElse({
-            logger.warn(s"Unable to convert ${record.get(colIndex)} at param index ${colIndex + 1} to ${tt}, inserting NULL instead")
-            ps.setNull(colIndex + 1, 0)
-          })
+        colTypes.foreach { colType =>
+          val targetType = if (record.get(colIndex) == null) "NULL" else colType
+
+          targetType.toUpperCase() match {
+            case "INT" => ps.setInt(colIndex + 1, record.get(colIndex).toInt)
+            case "NULL" => ps.setNull(colIndex + 1, 0)
+            case _ => ps.setString(colIndex + 1, record.get(colIndex))
+          }
           colIndex += 1
         }
         batchRows += 1;
