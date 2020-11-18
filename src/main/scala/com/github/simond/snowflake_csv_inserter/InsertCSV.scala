@@ -4,7 +4,7 @@ import java.util.Properties
 
 import org.rogach.scallop.ScallopConf
 
-import scala.util.{Failure, Success, Try, Using}
+import scala.util.{Try, Using}
 import org.slf4j.LoggerFactory
 import org.rogach.scallop._
 import java.io.{FileNotFoundException, FileReader}
@@ -21,18 +21,17 @@ object InsertCSV extends App {
   val conf = new Conf(args)
   val prop = new Properties
   val insertTemplate = "insert into test_db.public.CUSTOMER values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-  val colTypes = List("int","string","int","int","int","int","int","string","string","string","string","int","int",
-    "int","string","string","string","string")
+  val colTypes = List("int", "string", "int", "int", "int", "int", "int", "string", "string", "string", "string", "int", "int",
+    "int", "string", "string", "string", "string")
 
   // Try to read the properties file
   try {
     prop.load(new FileReader(conf.snowflakeConfigFile()))
   } catch {
-    case e: FileNotFoundException => {
-      logger.error(s"Unable to find Snowflake config file ${conf.snowflakeConfigFile()} \n ${e}")
+    case e: FileNotFoundException =>
+      logger.error(s"Unable to find Snowflake config file ${conf.snowflakeConfigFile()} \n $e")
       println(s"Unable to find Snowflake config file ${conf.snowflakeConfigFile()}")
       System.exit(1)
-    }
   }
 
   val connection = SnowflakeJdbcWrapper.getConnection(
@@ -45,17 +44,17 @@ object InsertCSV extends App {
     warehouse = Option(prop.getProperty("warehouse"))
   )
 
-  connection match {
-    case Success(connection) =>
-      Using.Manager { use =>
-        val conn = use(connection)
-        val csvIterator = use(CsvReader(',', conf.fileLocation())).iterator
-        time {
-          SnowflakeJdbcWrapper.writeBatches(csvIterator, conn, insertTemplate, colTypes, conf.batchSize())
-        }
-      }.get
-    case Failure(e) => logger.error(s"Unable to connect to database: \n$e"); // throw e
-  }
+  val rowsWritten: Try[Int] = connection.flatMap(connection =>
+    Using.Manager({ use =>
+      val conn = use(connection)
+      val csvIterator = use(CsvReader(',', conf.fileLocation())).iterator
+      time {
+        SnowflakeJdbcWrapper.writeBatches(csvIterator, conn, insertTemplate, colTypes, conf.batchSize())
+      }
+    })
+  )
+
+  println(rowsWritten)
 
   def time[R](block: => R): R = {
     val t0: Float = System.nanoTime()

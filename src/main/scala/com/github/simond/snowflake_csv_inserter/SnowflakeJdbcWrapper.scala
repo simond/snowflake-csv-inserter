@@ -33,14 +33,15 @@ object SnowflakeJdbcWrapper {
   }
 
   def writeBatches(records: Iterator[CSVRecord], conn: Connection, sql: String, colTypes: List[String],
-                   batchSize: Int): Unit = {
+                   batchSize: Int): Int = {
     val ps = conn.prepareStatement(sql)
     var batchNumber = 0
+    var rowsInserted = 0
     val batched = records.grouped(batchSize)
 
     batched.foreach(batch => {
       batchNumber += 1
-      var rowsRead = 0
+      var batchRows = 0
       batch.foreach(record => {
         var colIndex = 0
         ps.clearParameters()
@@ -59,14 +60,17 @@ object SnowflakeJdbcWrapper {
           })
           colIndex += 1
         }
-        rowsRead += 1;
+        batchRows += 1;
         ps.addBatch()
       })
-      logger.info(s"Writing batch ${batchNumber} with ${rowsRead} records to Snowflake...")
-      println(s"Writing batch ${batchNumber} with ${rowsRead} records to Snowflake...")
+      logger.info(s"Writing batch ${batchNumber} with ${batchRows} records to Snowflake...")
+      println(s"Writing batch ${batchNumber} with ${batchRows} records to Snowflake...")
       ps.executeBatch()
-      logger.info(s"Done writing batch ${batchNumber}")
+      rowsInserted += batchRows
+      logger.info(s"Done writing batch ${batchNumber}. ${rowsInserted} written so far...")
       println(s"Done writing batch ${batchNumber}")
     })
+
+    rowsInserted
   }
 }
