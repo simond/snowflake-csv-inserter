@@ -20,7 +20,7 @@ object InsertCSV extends App {
   private val logger = LoggerFactory.getLogger(getClass)
   val conf = new Conf(args)
   val prop = new Properties
-  val insertTemplate = "insert into test_db.public.CUSTOMER values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+  val insertTemplate = "insert into test_db.public.customer values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
   val colTypes = List("int", "string", "int", "int", "int", "int", "int", "string", "string", "string", "string", "int", "int",
     "int", "string", "string", "string", "string")
 

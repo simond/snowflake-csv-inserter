@@ -1,13 +1,14 @@
 package com.github.simond.snowflake_csv_inserter
 
-import java.sql.{Connection, DriverManager, PreparedStatement, ResultSet, SQLException}
+import java.sql.{Connection, DatabaseMetaData, DriverManager}
+
 import org.apache.commons.csv.CSVRecord
 import java.util.Properties
-import org.slf4j.LoggerFactory
-import scala.util.Try
 
-class SnowflakeWrapper {
-}
+import org.slf4j.LoggerFactory
+import net.snowflake.client.jdbc.SnowflakeType
+
+import scala.util.Try
 
 object SnowflakeWrapper {
   private val logger = LoggerFactory.getLogger(getClass)
@@ -46,10 +47,8 @@ object SnowflakeWrapper {
       batch.foreach(record => {
         var colIndex = 0
         ps.clearParameters()
-
         colTypes.foreach { colType =>
           val targetType = if (record.get(colIndex) == null) "NULL" else colType
-
           targetType.toUpperCase() match {
             case "INT" => ps.setInt(colIndex + 1, record.get(colIndex).toInt)
             case "NULL" => ps.setNull(colIndex + 1, 0)
@@ -67,7 +66,22 @@ object SnowflakeWrapper {
       logger.info(s"Done writing batch ${batchNumber}. ${rowsInserted} written so far...")
       println(s"Done writing batch ${batchNumber}")
     })
-
     rowsInserted
+  }
+
+  def getTableColumnTypes(conn: Connection, tableName: String, databaseName: Option[String] = None,
+                          schemaName: Option[String] = None, ignoreQuotedCase: Boolean = true): Option[Map[Int, String]] = {
+    val toUpper = (x: String) => if(ignoreQuotedCase) x.toUpperCase else x
+    val db = databaseName.map(toUpper).getOrElse(conn.getCatalog)
+    val schema = schemaName.map(toUpper).getOrElse(conn.getSchema)
+    val table = toUpper(tableName)
+
+    val tableColumns = conn.getMetaData.getColumns(db, schema, table, null)
+    var columnTypes: Map[Int, String] = Map()
+    while(tableColumns.next()) {
+      columnTypes += tableColumns.getInt("ORDINAL_POSITION") -> SnowflakeType.javaTypeToClassName(tableColumns.getInt("DATA_TYPE"))
+    }
+
+    if(columnTypes.isEmpty) None else Option(columnTypes)
   }
 }
