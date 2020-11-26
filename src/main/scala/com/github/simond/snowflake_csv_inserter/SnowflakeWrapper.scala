@@ -34,33 +34,32 @@ object SnowflakeWrapper {
   }
 
   def writeBatches(records: Iterator[CSVRecord], conn: Connection, table: String, batchSize: Int): Try[Int] = {
+    val colTypes = getTableColumnTypes(conn, table)
     var batchNumber = 0
     var rowsInserted = 0
-    val batched = records.grouped(batchSize)
-    logger.debug("SnowflakeWrapper.scala: Batches grouped")
-    val colTypes = getTableColumnTypes(conn, table)
 
     colTypes.map(colTypes => {
       val sql = s"insert into ${table} values (${colTypes.map(x => "?").mkString(", ")})"
       val ps = conn.prepareStatement(sql)
 
-      batched.foreach(batch => {
-        var batchRows = 0
-        batchNumber += 1
-
-        batch.foreach(record => {
-          ps.clearParameters()
-          colTypes.foreach { colType =>
-            ps.setObject(colType._1, record.get(colType._1 - 1), colType._2)
-          }
-          batchRows += 1;
-          ps.addBatch()
-        })
-        logger.info(s"Writing batch ${batchNumber} with ${batchRows} records to Snowflake...")
-        ps.executeBatch()
-        rowsInserted += batchRows
-        logger.info(s"Done writing batch ${batchNumber}. ${rowsInserted} written so far...")
-      })
+      var batchRowsInserted = 0
+      while (records.hasNext) {
+        val record = records.next()
+        ps.clearParameters()
+        colTypes.foreach { colType =>
+          ps.setObject(colType._1, record.get(colType._1 - 1), colType._2)
+        }
+        ps.addBatch()
+        batchRowsInserted += 1
+        if (batchRowsInserted == batchSize || !records.hasNext) {
+          batchNumber += 1
+          logger.info(s"Writing batch ${batchNumber} with ${batchRowsInserted} records to Snowflake...")
+          ps.executeBatch()
+          rowsInserted += batchRowsInserted
+          logger.info(s"Done writing batch ${batchNumber}. ${rowsInserted} written so far...")
+          batchRowsInserted = 0
+        }
+      }
       rowsInserted
     })
   }
@@ -81,7 +80,7 @@ object SnowflakeWrapper {
       while (cols.next()) {
         columnTypes += cols.getInt("ORDINAL_POSITION") -> cols.getInt("DATA_TYPE")
       }
-      if(columnTypes.nonEmpty){
+      if (columnTypes.nonEmpty) {
         Success(columnTypes)
       } else {
         Failure(NoColumnsFoundException(s"No columns in table $table or the table was not found"))
