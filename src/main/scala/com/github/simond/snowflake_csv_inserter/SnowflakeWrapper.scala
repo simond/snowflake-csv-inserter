@@ -1,14 +1,14 @@
 package com.github.simond.snowflake_csv_inserter
 
-import java.sql.{Connection, DatabaseMetaData, DriverManager}
+import java.sql.{Connection, DriverManager, SQLException}
 
 import org.apache.commons.csv.CSVRecord
 import java.util.Properties
 
+import scala.util.{Failure, Success, Try}
 import org.slf4j.LoggerFactory
-import net.snowflake.client.jdbc.SnowflakeType
 
-import scala.util.Try
+case class NoColumnsFoundException(reason: String) extends SQLException(reason)
 
 object SnowflakeWrapper {
   private val logger = LoggerFactory.getLogger(getClass)
@@ -33,55 +33,59 @@ object SnowflakeWrapper {
     })
   }
 
-  def writeBatches(records: Iterator[CSVRecord], conn: Connection, sql: String, colTypes: List[String],
-                   batchSize: Int): Int = {
-    val ps = conn.prepareStatement(sql)
+  def writeBatches(records: Iterator[CSVRecord], conn: Connection, table: String, batchSize: Int): Try[Int] = {
     var batchNumber = 0
     var rowsInserted = 0
     val batched = records.grouped(batchSize)
+    logger.debug("SnowflakeWrapper.scala: Batches grouped")
+    val colTypes = getTableColumnTypes(conn, table)
 
-    batched.foreach(batch => {
-      var batchRows = 0
-      batchNumber += 1
+    colTypes.map(colTypes => {
+      val sql = s"insert into ${table} values (${colTypes.map(x => "?").mkString(", ")})"
+      val ps = conn.prepareStatement(sql)
 
-      batch.foreach(record => {
-        var colIndex = 0
-        ps.clearParameters()
-        colTypes.foreach { colType =>
-          val targetType = if (record.get(colIndex) == null) "NULL" else colType
-          targetType.toUpperCase() match {
-            case "INT" => ps.setInt(colIndex + 1, record.get(colIndex).toInt)
-            case "NULL" => ps.setNull(colIndex + 1, 0)
-            case _ => ps.setString(colIndex + 1, record.get(colIndex))
+      batched.foreach(batch => {
+        var batchRows = 0
+        batchNumber += 1
+
+        batch.foreach(record => {
+          ps.clearParameters()
+          colTypes.foreach { colType =>
+            ps.setObject(colType._1, record.get(colType._1 - 1), colType._2)
           }
-          colIndex += 1
-        }
-        batchRows += 1;
-        ps.addBatch()
+          batchRows += 1;
+          ps.addBatch()
+        })
+        logger.info(s"Writing batch ${batchNumber} with ${batchRows} records to Snowflake...")
+        ps.executeBatch()
+        rowsInserted += batchRows
+        logger.info(s"Done writing batch ${batchNumber}. ${rowsInserted} written so far...")
       })
-      logger.info(s"Writing batch ${batchNumber} with ${batchRows} records to Snowflake...")
-      println(s"Writing batch ${batchNumber} with ${batchRows} records to Snowflake...")
-      ps.executeBatch()
-      rowsInserted += batchRows
-      logger.info(s"Done writing batch ${batchNumber}. ${rowsInserted} written so far...")
-      println(s"Done writing batch ${batchNumber}")
+      rowsInserted
     })
-    rowsInserted
   }
 
-  def getTableColumnTypes(conn: Connection, tableName: String, databaseName: Option[String] = None,
-                          schemaName: Option[String] = None, ignoreQuotedCase: Boolean = true): Option[Map[Int, String]] = {
-    val toUpper = (x: String) => if(ignoreQuotedCase) x.toUpperCase else x
+  private def getTableColumnTypes(conn: Connection, tableName: String, databaseName: Option[String] = None,
+                                  schemaName: Option[String] = None, ignoreQuotedCase: Boolean = true): Try[Map[Int, Int]] = {
+
+    val toUpper = (x: String) => if (ignoreQuotedCase) x.toUpperCase else x
     val db = databaseName.map(toUpper).getOrElse(conn.getCatalog)
     val schema = schemaName.map(toUpper).getOrElse(conn.getSchema)
     val table = toUpper(tableName)
 
-    val tableColumns = conn.getMetaData.getColumns(db, schema, table, null)
-    var columnTypes: Map[Int, String] = Map()
-    while(tableColumns.next()) {
-      columnTypes += tableColumns.getInt("ORDINAL_POSITION") -> SnowflakeType.javaTypeToClassName(tableColumns.getInt("DATA_TYPE"))
-    }
+    // Get columns from database (Doesn't return an exception if the table doesn't exist)
+    val tableColumns = Try(conn.getMetaData.getColumns(db, schema, table, null))
 
-    if(columnTypes.isEmpty) None else Option(columnTypes)
+    tableColumns.flatMap(cols => {
+      var columnTypes: Map[Int, Int] = Map()
+      while (cols.next()) {
+        columnTypes += cols.getInt("ORDINAL_POSITION") -> cols.getInt("DATA_TYPE")
+      }
+      if(columnTypes.nonEmpty){
+        Success(columnTypes)
+      } else {
+        Failure(NoColumnsFoundException(s"No columns in table $table or the table was not found"))
+      }
+    })
   }
 }
