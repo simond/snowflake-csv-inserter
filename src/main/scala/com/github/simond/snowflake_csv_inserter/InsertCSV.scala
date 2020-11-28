@@ -4,7 +4,7 @@ import java.util.Properties
 
 import org.rogach.scallop.ScallopConf
 
-import scala.util.{Using}
+import scala.util.Using
 import org.slf4j.LoggerFactory
 import org.rogach.scallop._
 import java.io.{FileNotFoundException, FileReader}
@@ -52,14 +52,15 @@ object InsertCSV extends App {
     })
   )
 
-  println(rowsWritten)
+  println(rowsWritten.get._1)
 
-  def time[R](block: => R): R = {
+  def time[R](block: => R): (R, Float) = {
     val t0: Float = System.nanoTime()
     val result = block
     val t1: Float = System.nanoTime()
-    println("Elapsed time: " + ((t1 - t0) / 1000000) + " milliseconds")
-    result
+    val elapsedTime = ((t1 - t0) / 1000000)
+//    println("Elapsed time: " + ((t1 - t0) / 1000000) + " milliseconds")
+    (result, elapsedTime)
   }
 
 }
