@@ -7,9 +7,9 @@
 .lib/
 dist/*
 target/
-project/
 lib_managed/
 src_managed/
+project/target/
 project/boot/
 project/plugins/project/
 
