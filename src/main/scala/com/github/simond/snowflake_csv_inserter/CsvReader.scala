@@ -2,6 +2,7 @@ package com.github.simond.snowflake_csv_inserter
 
 import java.io.{Closeable, File, FileNotFoundException}
 import java.nio.charset.Charset
+import java.sql.SQLException
 
 import scala.jdk.CollectionConverters._
 import org.apache.commons.csv.{CSVFormat, CSVParser, CSVRecord}
@@ -36,8 +37,7 @@ object CsvReader {
       case Success(e) => Success(e)
       case Failure(e: FileNotFoundException) =>
         Failure(NoCSVFileFoundException(s"Couldn't find CSV file $fileLocation"))
-      case Failure(e) =>
-        throw e;
+      case Failure(e) => Failure(e)
     }
   }
 }
