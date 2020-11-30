@@ -43,7 +43,7 @@ object InsertCSV extends App {
     warehouse = Option(prop.getProperty("warehouse"))
   )
 
-  val (rowsWritten, milliseconds) = connection.flatMap(connection =>
+  val (rowsWritten: Int, milliseconds: Float) = connection.flatMap(connection =>
     Using.Manager({ use =>
       val conn = use(connection)
       val csvIterator = use(CsvReader(',', conf.fileLocation()).get).iterator
@@ -59,7 +59,7 @@ object InsertCSV extends App {
     case Failure(e) => throw e;
   }
 
-  println(s"$rowsWritten rows written in $milliseconds milliseconds")
+  println(s"$rowsWritten rows written in $milliseconds milliseconds. That's ${rowsWritten / milliseconds} rows per millisecond")
 
   def time[R](block: => R): (R, Float) = {
     val t0: Float = System.nanoTime()

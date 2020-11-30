@@ -11,7 +11,7 @@ import scala.util.{Failure, Success, Try}
 
 case class NoCSVFileFoundException(reason: String) extends FileNotFoundException(reason)
 
-class CsvReader private (delimiter: Char, fileLocation: String) extends Closeable {
+class CsvReader private(delimiter: Char, fileLocation: String) extends Closeable {
   private val logger = LoggerFactory.getLogger(getClass)
   private val format = CSVFormat.newFormat(delimiter)
     .withIgnoreEmptyLines(false)
@@ -36,6 +36,8 @@ object CsvReader {
       case Success(e) => Success(e)
       case Failure(e: FileNotFoundException) =>
         Failure(NoCSVFileFoundException(s"Couldn't find CSV file $fileLocation"))
+      case Failure(e) =>
+        throw e;
     }
   }
 }
