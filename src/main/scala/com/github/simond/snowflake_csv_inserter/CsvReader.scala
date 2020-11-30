@@ -1,11 +1,15 @@
 package com.github.simond.snowflake_csv_inserter
 
-import java.io.{Closeable, File}
+import java.io.{Closeable, File, FileNotFoundException}
 import java.nio.charset.Charset
 
 import scala.jdk.CollectionConverters._
 import org.apache.commons.csv.{CSVFormat, CSVParser, CSVRecord}
 import org.slf4j.LoggerFactory
+
+import scala.util.{Failure, Success, Try}
+
+case class NoCSVFileFoundException(reason: String) extends FileNotFoundException(reason)
 
 class CsvReader private (delimiter: Char, fileLocation: String) extends Closeable {
   private val logger = LoggerFactory.getLogger(getClass)
@@ -27,7 +31,11 @@ class CsvReader private (delimiter: Char, fileLocation: String) extends Closeabl
 }
 
 object CsvReader {
-  def apply(delimiter: Char, fileLocation: String): CsvReader = {
-    new CsvReader(delimiter, fileLocation)
+  def apply(delimiter: Char, fileLocation: String): Try[CsvReader] = {
+    Try(new CsvReader(delimiter, fileLocation)) match {
+      case Success(e) => Success(e)
+      case Failure(e: FileNotFoundException) =>
+        Failure(NoCSVFileFoundException(s"Couldn't find CSV file $fileLocation"))
+    }
   }
 }

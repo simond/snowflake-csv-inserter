@@ -4,10 +4,11 @@ import java.util.Properties
 
 import org.rogach.scallop.ScallopConf
 
-import scala.util.Using
+import scala.util.{Failure, Success, Using}
 import org.slf4j.LoggerFactory
 import org.rogach.scallop._
-import java.io.{FileNotFoundException, FileReader}
+import java.io.{FileNotFoundException, FileReader, PrintWriter, StringWriter}
+
 
 class Conf(arguments: Seq[String]) extends ScallopConf(arguments) {
   val snowflakeConfigFile: ScallopOption[String] = opt[String](required = true, descr = "The location of the Snowflake configuration file")
@@ -42,25 +43,38 @@ object InsertCSV extends App {
     warehouse = Option(prop.getProperty("warehouse"))
   )
 
-  val rowsWritten = connection.flatMap(connection =>
+  val (rowsWritten, milliseconds) = connection.flatMap(connection =>
     Using.Manager({ use =>
       val conn = use(connection)
-      val csvIterator = use(CsvReader(',', conf.fileLocation())).iterator
+      val csvIterator = use(CsvReader(',', conf.fileLocation()).get).iterator
       time {
-        SnowflakeWrapper.writeBatches(csvIterator, conn, conf.targetTable(), conf.batchSize()).get
+        SnowflakeWrapper.writeBatches(csvIterator, conn, conf.targetTable(), conf.batchSize())
       }
     })
-  )
+  ) match {
+    case Success((Success(rowsWritten), milliseconds)) => (rowsWritten, milliseconds)
+    case Success((Failure(e: NoColumnsFoundException), _)) => logStackTraceAndExit(e, logger.error)
+    case Success((Failure(e), _)) => throw e;
+    case Failure(e: NoCSVFileFoundException) => logStackTraceAndExit(e, logger.error)
+    case Failure(e) => throw e;
+  }
 
-  println(rowsWritten.get._1)
+  println(s"$rowsWritten rows written in $milliseconds milliseconds")
 
   def time[R](block: => R): (R, Float) = {
     val t0: Float = System.nanoTime()
     val result = block
     val t1: Float = System.nanoTime()
     val elapsedTime = ((t1 - t0) / 1000000)
-//    println("Elapsed time: " + ((t1 - t0) / 1000000) + " milliseconds")
     (result, elapsedTime)
+  }
+
+  def logStackTraceAndExit(exception: Throwable, mode: String => Unit): Unit = {
+    val sw = new StringWriter
+    exception.printStackTrace(new PrintWriter(sw))
+    mode(sw.toString)
+    println(exception.getMessage)
+    System.exit(1)
   }
 
 }

@@ -83,7 +83,7 @@ object SnowflakeWrapper {
       if (columnTypes.nonEmpty) {
         Success(columnTypes)
       } else {
-        Failure(NoColumnsFoundException(s"No columns in table $table or the table was not found"))
+        Failure(NoColumnsFoundException(s"The table $table does not exist or you do not have permissions to see it"))
       }
     })
   }
