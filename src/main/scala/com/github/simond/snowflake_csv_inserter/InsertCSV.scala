@@ -28,7 +28,7 @@ object InsertCSV extends App {
     prop.load(new FileReader(conf.snowflakeConfigFile()))
   } catch {
     case e: FileNotFoundException =>
-      logger.error(s"Unable to find Snowflake config file ${conf.snowflakeConfigFile()} \n $e")
+      logger.error(s"Unable to find Snowflake config file ${conf.snowflakeConfigFile()}")
       println(s"Unable to find Snowflake config file ${conf.snowflakeConfigFile()}")
       System.exit(1)
   }
@@ -53,10 +53,15 @@ object InsertCSV extends App {
     })
   ) match {
     case Success((Success(rowsWritten), milliseconds)) => (rowsWritten, milliseconds)
-    case Success((Failure(e: NoColumnsFoundException), _)) => logStackTraceAndExit(e, logger.error)
+    case Success((Failure(e: NoColumnsFoundException), _)) =>
+      println(e.reason)
+      logStackTraceAndExit(e, logger.error)
     case Success((Failure(e), _)) => throw e;
-    case Failure(e: NoCSVFileFoundException) => logStackTraceAndExit(e, logger.error)
-    case Failure(e) => throw e;
+    case Failure(e: NoCSVFileFoundException) =>
+      println(e.reason)
+      logStackTraceAndExit(e, logger.error)
+    case Failure(e) =>
+      throw e;
   }
 
   println(s"$rowsWritten rows written in $milliseconds milliseconds. That's ${rowsWritten / milliseconds} rows per millisecond")
@@ -73,7 +78,6 @@ object InsertCSV extends App {
     val sw = new StringWriter
     exception.printStackTrace(new PrintWriter(sw))
     mode(sw.toString)
-    println(exception.getMessage)
     System.exit(1)
   }
 

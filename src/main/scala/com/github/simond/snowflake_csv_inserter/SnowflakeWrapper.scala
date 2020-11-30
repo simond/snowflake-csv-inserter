@@ -26,7 +26,8 @@ object SnowflakeWrapper {
     properties.put("schema", schema.getOrElse(""))
     properties.put("warehouse", warehouse.getOrElse(""))
 
-    logger.info("Connecting to Snowflake")
+    logger.info("Connecting to Snowflake..")
+    println("Connecting to Snowflake...")
     Try({
       Class.forName(driver)
       DriverManager.getConnection(url, properties)
@@ -54,9 +55,11 @@ object SnowflakeWrapper {
         if (batchRowsInserted == batchSize || !records.hasNext) {
           batchNumber += 1
           logger.info(s"Writing batch ${batchNumber} with ${batchRowsInserted} records to Snowflake...")
+          println(s"Writing batch ${batchNumber} with ${batchRowsInserted} records to Snowflake...")
           ps.executeBatch()
           rowsInserted += batchRowsInserted
-          logger.info(s"Done writing batch ${batchNumber}. ${rowsInserted} written so far...")
+          logger.info(s"Done writing batch ${batchNumber}. ${rowsInserted} written so far")
+          println(s"Done writing batch ${batchNumber}. ${rowsInserted} written so far")
           batchRowsInserted = 0
         }
       }
