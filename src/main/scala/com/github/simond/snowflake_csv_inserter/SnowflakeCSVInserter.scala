@@ -18,7 +18,7 @@ class Conf(arguments: Seq[String]) extends ScallopConf(arguments) {
   verify()
 }
 
-object InsertCSV extends App {
+object SnowflakeCSVInserter extends App {
   private val logger = LoggerFactory.getLogger(getClass)
   val conf = new Conf(args)
   val prop = new Properties
