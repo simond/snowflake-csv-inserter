@@ -2,7 +2,6 @@ package com.github.simond.snowflake_csv_inserter
 
 import java.io.{Closeable, File, FileNotFoundException}
 import java.nio.charset.Charset
-import java.sql.SQLException
 
 import scala.jdk.CollectionConverters._
 import org.apache.commons.csv.{CSVFormat, CSVParser, CSVRecord}
