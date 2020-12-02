@@ -1,6 +1,6 @@
 package com.github.simond.snowflake_csv_inserter
 
-import java.sql.{Connection, DriverManager, SQLException}
+import java.sql.{Connection, DriverManager, ResultSetMetaData, SQLException}
 
 import org.apache.commons.csv.CSVRecord
 import java.util.Properties
@@ -8,7 +8,7 @@ import java.util.Properties
 import scala.util.{Failure, Success, Try}
 import org.slf4j.LoggerFactory
 
-case class NoColumnsFoundException(reason: String) extends SQLException(reason)
+case class NoTableFoundException(reason: String) extends SQLException(reason)
 
 object SnowflakeWrapper {
   private val logger = LoggerFactory.getLogger(getClass)
@@ -67,27 +67,23 @@ object SnowflakeWrapper {
     })
   }
 
-  private def getTableColumnTypes(conn: Connection, tableName: String, databaseName: Option[String] = None,
-                                  schemaName: Option[String] = None, ignoreQuotedCase: Boolean = true): Try[Map[Int, Int]] = {
+  private def getTableColumnTypes(conn: Connection, tableName: String): Try[List[(Int, Int)]] = {
+    val metadata: Try[ResultSetMetaData] = Try {
+      val statement = conn.createStatement()
+      statement.executeQuery(s"select * from $tableName where 1=0").getMetaData
+    } match {
+      case Success(value) => Success(value)
+      case Failure(e: SQLException) => Failure(NoTableFoundException(s"Couldn't find table $tableName. Do you have access to it?"))
+      case Failure(e) => Failure(e)
+    }
 
-    val toUpper = (x: String) => if (ignoreQuotedCase) x.toUpperCase else x
-    val db = databaseName.map(toUpper).getOrElse(conn.getCatalog)
-    val schema = schemaName.map(toUpper).getOrElse(conn.getSchema)
-    val table = toUpper(tableName)
-
-    // Get columns from database (Doesn't return an exception if the table doesn't exist)
-    val tableColumns = Try(conn.getMetaData.getColumns(db, schema, table, null))
-
-    tableColumns.flatMap(cols => {
-      var columnTypes: Map[Int, Int] = Map()
-      while (cols.next()) {
-        columnTypes += cols.getInt("ORDINAL_POSITION") -> cols.getInt("DATA_TYPE")
+    metadata.map(metadata =>
+      for (
+        i <- { 1 to metadata.getColumnCount }.toList;
+        colType = metadata.getColumnType(i)
+      ) yield {
+        (i, colType)
       }
-      if (columnTypes.nonEmpty) {
-        Success(columnTypes)
-      } else {
-        Failure(NoColumnsFoundException(s"The table $table does not exist or you do not have permissions to see it"))
-      }
-    })
+    )
   }
 }

@@ -8,7 +8,7 @@ import scala.util.{Failure, Success, Using}
 import org.slf4j.LoggerFactory
 import org.rogach.scallop._
 import java.io.{FileNotFoundException, FileReader, PrintWriter, StringWriter}
-
+import java.sql.SQLException
 
 class Conf(arguments: Seq[String]) extends ScallopConf(arguments) {
   val snowflakeConfigFile: ScallopOption[String] = opt[String](required = true, descr = "The location of the Snowflake configuration file")
@@ -53,7 +53,7 @@ object SnowflakeCSVInserter extends App {
     })
   ) match {
     case Success((Success(rowsWritten), milliseconds)) => (rowsWritten, milliseconds)
-    case Success((Failure(e: NoColumnsFoundException), _)) =>
+    case Success((Failure(e: NoTableFoundException), _)) =>
       println(e.reason)
       logStackTraceAndExit(e, logger.error)
     case Success((Failure(e), _)) => throw e;
