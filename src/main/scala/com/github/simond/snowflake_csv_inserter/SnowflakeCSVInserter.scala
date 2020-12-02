@@ -8,7 +8,6 @@ import scala.util.{Failure, Success, Using}
 import org.slf4j.LoggerFactory
 import org.rogach.scallop._
 import java.io.{FileNotFoundException, FileReader, PrintWriter, StringWriter}
-import java.sql.SQLException
 
 class Conf(arguments: Seq[String]) extends ScallopConf(arguments) {
   val snowflakeConfigFile: ScallopOption[String] = opt[String](required = true, descr = "The location of the Snowflake configuration file")

@@ -73,7 +73,8 @@ object SnowflakeWrapper {
       statement.executeQuery(s"select * from $tableName where 1=0").getMetaData
     } match {
       case Success(value) => Success(value)
-      case Failure(e: SQLException) => Failure(NoTableFoundException(s"Couldn't find table $tableName. Do you have access to it?"))
+      case Failure(e: SQLException) if e.getErrorCode == 2003 =>
+        Failure(NoTableFoundException(s"Couldn't find table $tableName. Do you have access to it?"))
       case Failure(e) => Failure(e)
     }
 
