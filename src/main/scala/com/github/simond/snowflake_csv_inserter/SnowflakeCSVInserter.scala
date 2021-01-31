@@ -1,9 +1,7 @@
 package com.github.simond.snowflake_csv_inserter
 
 import java.util.Properties
-
 import org.rogach.scallop.ScallopConf
-
 import scala.util.{Failure, Success, Using}
 import org.slf4j.LoggerFactory
 import org.rogach.scallop._
@@ -42,11 +40,13 @@ object SnowflakeCSVInserter extends App {
     warehouse = Option(prop.getProperty("warehouse"))
   )
 
+
   val (rowsWritten: Int, milliseconds: Float) = connection.flatMap(connection =>
     Using.Manager({ use =>
       val conn = use(connection)
       val csvIterator = use(CsvReader(',', conf.fileLocation()).get).iterator
       time {
+        import ImplicitHelpers.CSVRecordsGettable
         SnowflakeWrapper.writeBatches(csvIterator, conn, conf.targetTable(), conf.batchSize())
       }
     })

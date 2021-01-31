@@ -2,11 +2,9 @@ package com.github.simond.snowflake_csv_inserter
 
 import java.io.{Closeable, File, FileNotFoundException}
 import java.nio.charset.Charset
-
 import scala.jdk.CollectionConverters._
 import org.apache.commons.csv.{CSVFormat, CSVParser, CSVRecord}
 import org.slf4j.LoggerFactory
-
 import scala.util.{Failure, Success, Try}
 
 case class NoCSVFileFoundException(reason: String) extends FileNotFoundException(reason)

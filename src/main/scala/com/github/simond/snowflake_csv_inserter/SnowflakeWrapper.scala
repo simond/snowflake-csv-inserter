@@ -1,14 +1,15 @@
 package com.github.simond.snowflake_csv_inserter
 
 import java.sql.{Connection, DriverManager, ResultSetMetaData, SQLException}
-
-import org.apache.commons.csv.CSVRecord
 import java.util.Properties
-
 import scala.util.{Failure, Success, Try}
 import org.slf4j.LoggerFactory
 
 case class NoTableFoundException(reason: String) extends SQLException(reason)
+
+trait Gettable[T] {
+  def get(t: T, index: Int): String
+}
 
 object SnowflakeWrapper {
   private val logger = LoggerFactory.getLogger(getClass)
@@ -34,7 +35,8 @@ object SnowflakeWrapper {
     })
   }
 
-  def writeBatches(records: Iterator[CSVRecord], conn: Connection, table: String, batchSize: Int): Try[Int] = {
+  def writeBatches[T: Gettable](records: Iterator[T], conn: Connection, table: String, batchSize: Int): Try[Int] = {
+    val getter = implicitly[Gettable[T]]
     val colTypes = getTableColumnTypes(conn, table)
     var batchNumber = 0
     var rowsInserted = 0
@@ -46,12 +48,14 @@ object SnowflakeWrapper {
       var batchRowsInserted = 0
       while (records.hasNext) {
         val record = records.next()
+
         ps.clearParameters()
         colTypes.foreach { colType =>
-          ps.setObject(colType._1, record.get(colType._1 - 1), colType._2)
+          ps.setObject(colType._1, getter.get(record, colType._1 - 1), colType._2)
         }
         ps.addBatch()
         batchRowsInserted += 1
+
         if (batchRowsInserted == batchSize || !records.hasNext) {
           batchNumber += 1
           logger.info(s"Writing batch ${batchNumber} with ${batchRowsInserted} records to Snowflake...")
@@ -80,7 +84,9 @@ object SnowflakeWrapper {
 
     metadata.map(metadata =>
       for (
-        i <- { 1 to metadata.getColumnCount }.toList;
+        i <- {
+          1 to metadata.getColumnCount
+        }.toList;
         colType = metadata.getColumnType(i)
       ) yield {
         (i, colType)
