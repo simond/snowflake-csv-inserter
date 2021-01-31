@@ -6,8 +6,8 @@ import scala.jdk.CollectionConverters._
 import org.apache.commons.csv.{CSVFormat, CSVParser, CSVRecord}
 import org.slf4j.LoggerFactory
 import scala.util.{Failure, Success, Try}
+import CustomExceptions.NoCSVFileFoundException
 
-case class NoCSVFileFoundException(reason: String) extends FileNotFoundException(reason)
 
 class CsvReader private(delimiter: Char, fileLocation: String) extends Closeable {
   private val logger = LoggerFactory.getLogger(getClass)

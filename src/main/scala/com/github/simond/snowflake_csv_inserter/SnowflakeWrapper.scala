@@ -4,12 +4,8 @@ import java.sql.{Connection, DriverManager, ResultSetMetaData, SQLException}
 import java.util.Properties
 import scala.util.{Failure, Success, Try}
 import org.slf4j.LoggerFactory
+import CustomExceptions.NoTableFoundException
 
-case class NoTableFoundException(reason: String) extends SQLException(reason)
-
-trait Gettable[T] {
-  def get(t: T, index: Int): String
-}
 
 object SnowflakeWrapper {
   private val logger = LoggerFactory.getLogger(getClass)
