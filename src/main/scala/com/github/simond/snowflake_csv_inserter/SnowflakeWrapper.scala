@@ -4,7 +4,7 @@ import java.sql.{Connection, DriverManager, ResultSetMetaData, SQLException}
 import java.util.Properties
 import scala.util.{Failure, Success, Try}
 import org.slf4j.LoggerFactory
-import CustomExceptions.NoTableFoundException
+import CustomExceptions.{NoTableFoundException, ColumnCountMismatch}
 
 
 object SnowflakeWrapper {
@@ -31,23 +31,31 @@ object SnowflakeWrapper {
     })
   }
 
+  case class ColumnMetadata(columnLocation: Int, columnName: String, columnDataType: Int)
+
   def writeBatches[T: Gettable](records: Iterator[T], conn: Connection, table: String, batchSize: Int): Try[Int] = {
     val getter = implicitly[Gettable[T]]
     val colTypes = getTableColumnTypes(conn, table)
-    var batchNumber = 0
-    var rowsInserted = 0
 
     colTypes.map(colTypes => {
+      var batchNumber = 0
+      var rowsInserted = 0
+      var batchRowsInserted = 0
+
       val sql = s"insert into ${table} values (${colTypes.map(x => "?").mkString(", ")})"
       val ps = conn.prepareStatement(sql)
 
-      var batchRowsInserted = 0
       while (records.hasNext) {
         val record = records.next()
+        if (getter.getFieldCount(record) != colTypes.size) {
+          return Failure(ColumnCountMismatch(s"Number of fields or columns in the records provided " +
+            s"(${getter.getFieldCount(record)}) do not  match the number of columns in the database " +
+            s"table (${colTypes.size})"))
+        }
 
         ps.clearParameters()
         colTypes.foreach { colType =>
-          ps.setObject(colType._1, getter.get(record, colType._1 - 1), colType._2)
+          ps.setObject(colType.columnLocation, getter.getField(record, colType.columnLocation - 1), colType.columnDataType)
         }
         ps.addBatch()
         batchRowsInserted += 1
@@ -67,7 +75,7 @@ object SnowflakeWrapper {
     })
   }
 
-  private def getTableColumnTypes(conn: Connection, tableName: String): Try[List[(Int, Int)]] = {
+  private def getTableColumnTypes(conn: Connection, tableName: String): Try[List[ColumnMetadata]] = {
     val metadata: Try[ResultSetMetaData] = Try {
       val statement = conn.createStatement()
       statement.executeQuery(s"select * from $tableName where 1=0").getMetaData
@@ -80,13 +88,9 @@ object SnowflakeWrapper {
 
     metadata.map(metadata =>
       for (
-        i <- {
-          1 to metadata.getColumnCount
-        }.toList;
-        colType = metadata.getColumnType(i)
-      ) yield {
-        (i, colType)
-      }
+        i <- (1 to metadata.getColumnCount).toList;
+        colType = ColumnMetadata(i, metadata.getColumnName(i), metadata.getColumnType(i))
+      ) yield colType
     )
   }
 }

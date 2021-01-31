@@ -6,4 +6,5 @@ import java.sql.SQLException
 object CustomExceptions {
   case class NoCSVFileFoundException(reason: String) extends FileNotFoundException(reason)
   case class NoTableFoundException(reason: String) extends SQLException(reason)
+  case class ColumnCountMismatch(reason: String) extends SQLException(reason)
 }

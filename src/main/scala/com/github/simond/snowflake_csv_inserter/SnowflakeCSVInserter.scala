@@ -27,9 +27,8 @@ object SnowflakeCSVInserter extends App {
     prop.load(new FileReader(conf.snowflakeConfigFile()))
   } catch {
     case e: FileNotFoundException =>
-      logger.error(s"Unable to find Snowflake config file ${conf.snowflakeConfigFile()}")
       println(s"Unable to find Snowflake config file ${conf.snowflakeConfigFile()}")
-      System.exit(1)
+      Logger.logStackTraceAndExit(e, logger.error)
   }
 
   val connection = SnowflakeWrapper.getConnection(
@@ -42,7 +41,6 @@ object SnowflakeCSVInserter extends App {
     warehouse = Option(prop.getProperty("warehouse"))
   )
 
-
   val (rowsWritten: Int, milliseconds: Float) = connection.flatMap(connection =>
     Using.Manager({ use =>
       val conn = use(connection)
@@ -54,6 +52,9 @@ object SnowflakeCSVInserter extends App {
   ) match {
     case Success((Success(rowsWritten), milliseconds)) => (rowsWritten, milliseconds)
     case Success((Failure(e: NoTableFoundException), _)) =>
+      println(e.reason)
+      Logger.logStackTraceAndExit(e, logger.error)
+    case Success((Failure(e: ColumnCountMismatch), _)) =>
       println(e.reason)
       Logger.logStackTraceAndExit(e, logger.error)
     case Success((Failure(e), _)) => throw e;
