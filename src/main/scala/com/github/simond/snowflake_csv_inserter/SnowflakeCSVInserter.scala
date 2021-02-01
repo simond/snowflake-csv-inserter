@@ -65,7 +65,8 @@ object SnowflakeCSVInserter extends App {
       throw e;
   }
 
-  println(s"$rowsWritten rows written in $milliseconds milliseconds. That's ${rowsWritten / milliseconds} rows per millisecond")
+  println(s"$rowsWritten rows written in ${milliseconds / 1000} seconds. That's ${rowsWritten / (milliseconds / 1000)} " +
+    s"rows per second")
 
   def time[R](block: => R): (R, Float) = {
     val t0: Float = System.nanoTime()

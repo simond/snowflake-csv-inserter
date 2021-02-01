@@ -41,16 +41,20 @@ object SnowflakeWrapper {
       var batchNumber = 0
       var rowsInserted = 0
       var batchRowsInserted = 0
+      var recordsProcessed = 0
 
       val sql = s"insert into ${table} values (${colTypes.map(x => "?").mkString(", ")})"
       val ps = conn.prepareStatement(sql)
 
       while (records.hasNext) {
         val record = records.next()
-        if (getter.getFieldCount(record) != colTypes.size) {
-          return Failure(ColumnCountMismatch(s"Number of fields or columns in the records provided " +
-            s"(${getter.getFieldCount(record)}) do not  match the number of columns in the database " +
-            s"table (${colTypes.size})"))
+        val numFields = getter.getFieldCount(record)
+        val numColumns = getter.getFieldCount(record)
+        recordsProcessed += 1
+
+        if (numFields != colTypes.size) {
+          return Failure(ColumnCountMismatch(s"Data error at position $recordsProcessed: Number of fields ($numFields) "
+            + s"does not match the number of columns ($numColumns) in the database table"))
         }
 
         ps.clearParameters()
