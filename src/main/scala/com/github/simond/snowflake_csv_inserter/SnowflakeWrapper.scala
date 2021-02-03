@@ -48,12 +48,11 @@ object SnowflakeWrapper {
 
       while (records.hasNext) {
         val record = records.next()
-        val numFields = getter.getFieldCount(record)
         val numColumns = getter.getFieldCount(record)
         recordsProcessed += 1
 
-        if (numFields != colTypes.size) {
-          return Failure(ColumnCountMismatch(s"Data error at position $recordsProcessed: Number of fields ($numFields) "
+        if (numColumns != colTypes.size) {
+          return Failure(ColumnCountMismatch(s"Data error at position $recordsProcessed: Number of fields ($numColumns) "
             + s"does not match the number of columns ($numColumns) in the database table"))
         }
 
