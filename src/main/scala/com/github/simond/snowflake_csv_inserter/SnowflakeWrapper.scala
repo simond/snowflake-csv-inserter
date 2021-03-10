@@ -53,7 +53,7 @@ object SnowflakeWrapper {
 
         if (numColumns != colTypes.size) {
           return Failure(ColumnCountMismatch(s"Data error at position $recordsProcessed: Number of fields ($numColumns) "
-            + s"does not match the number of columns ($numColumns) in the database table"))
+            + s"in csv file does not match the number of columns (${colTypes.size}) in the database table"))
         }
 
         ps.clearParameters()
